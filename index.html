@@ -631,15 +631,20 @@ function buildReport(k,m){
   L.push('',`Gesamtkosten alle Fahrzeuge: ${eur(m.total)}`,`Erstellt mit Ladebuch am ${new Date().toLocaleDateString('de-DE')}`);
   return L.join('\n');
 }
+function slugName(s){ return (s||'').trim().toLowerCase()
+  .replace(/[äöüß]/g,c=>({ä:'ae',ö:'oe',ü:'ue',ß:'ss'}[c]))
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40); }
 function buildCsv(k){
-  const rows=[['Datum','Art','Fahrzeug','Kennzeichen','Anbieter','Kraftstoff','Menge','Einheit','Preis je Einheit','Betrag EUR','Bezahlt mit','Zweck','Kilometerstand','Erstattungsfähig','Notiz']];
+  const rows=[['Name','Datum','Art','Fahrzeug','Kennzeichen','Anbieter','Kraftstoff','Menge','Einheit','Preis je Einheit','Betrag EUR','Bezahlt mit','Zweck','Kilometerstand','Erstattungsfähig','Notiz']];
   for(const e of [...inMonth(k)].sort((a,b)=>a.date.localeCompare(b.date))){
-    rows.push([e.date,TYPE[e.type],e.vehicle,plateOf(e.vehicle),e.provider,e.fuelType,num(e.qty,2),e.type==='fuel'?'l':'kWh',e.qty?(e.type==='fuel'?num(e.amount/e.qty,3):num(e.amount/e.qty*100,1)):'',num(e.amount,2),e.paidBy==='company'?'Firmenkarte':'privat',e.purpose==='business'?'dienstlich':'privat',e.odo||'',isReimbursable(e)?'ja':'nein',e.note]);
+    rows.push([settings.name||'',e.date,TYPE[e.type],e.vehicle,plateOf(e.vehicle),e.provider,e.fuelType,num(e.qty,2),e.type==='fuel'?'l':'kWh',e.qty?(e.type==='fuel'?num(e.amount/e.qty,3):num(e.amount/e.qty*100,1)):'',num(e.amount,2),e.paidBy==='company'?'Firmenkarte':'privat',e.purpose==='business'?'dienstlich':'privat',e.odo||'',isReimbursable(e)?'ja':'nein',e.note]);
   }
   return '\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
 }
 $('#exportCsv').addEventListener('click',async()=>{
-  const csv=buildCsv(curMonth), name=`ladebuch-${curMonth}.csv`;
+  if(!settings.name){ if(!confirm('Unter Einstellungen ist noch kein Name hinterlegt – der Bericht lässt sich dann nicht eindeutig zuordnen. Trotzdem ohne Namen exportieren?')) { showView('settings'); return; } }
+  const slug=slugName(settings.name);
+  const csv=buildCsv(curMonth), name=`ladebuch-${slug?slug+'-':''}${curMonth}.csv`;
   if(downloadsNs){ try{ await downloadsNs.save({filename:name,data:csv}); toast('CSV gespeichert'); return; }catch(e){ if(e?.code==='declined'){toast('Abgebrochen');return;} } }
   try{ await navigator.clipboard.writeText(csv); toast('Download hier nicht möglich – CSV in die Zwischenablage kopiert'); }catch(_){ toast('Export in dieser Ansicht nicht möglich'); }
 });
